@@ -4,12 +4,9 @@ Setup completo do n8n com PostgreSQL usando Docker Compose, otimizado para desen
 
 ## 🚀 Início Rápido
 
-### Método 1: Automático co## 🛡️ Segurança
+### Método 1: Automático com `start-n8n-ngrok.sh`
 
-- ⚠️ **Desenvolvimento apenas**: Esta configuração é otimizada para desenvolvimento local
-- 🔐 **Webhook Security**: Configure autenticação nos webhooks quando possível  
-- 📝 **Logs**: Monitore logs para detectar atividades suspeitas
-- 🌐 **ngrok**: Em produção, use soluções como Cloudflare Tunnel (Recomendado)
+Este script automatiza todo o processo, desde a configuração do ngrok até o início dos serviços.
 
 ```bash
 # Usar subdomínio específico (requer conta ngrok paga)
@@ -19,7 +16,7 @@ Setup completo do n8n com PostgreSQL usando Docker Compose, otimizado para desen
 ./start-n8n-ngrok.sh
 ```
 
-O script automatizado irá:
+O script irá:
 - ✅ Iniciar o ngrok
 - ✅ Obter a URL do tunnel automaticamente
 - ✅ Atualizar o arquivo `.env` com as configurações corretas
@@ -64,16 +61,16 @@ O script automatizado irá:
 ## 🌐 Acessos
 
 Após iniciar com o script automático:
-- **n8n Interface**: https://sua-url-ngrok.ngrok-free.app
-- **ngrok Dashboard**: http://localhost:4040
-- **PostgreSQL**: localhost:5432
+- **n8n Interface**: `https://sua-url-ngrok.ngrok-free.app`
+- **ngrok Dashboard**: `http://localhost:4040`
+- **PostgreSQL**: `localhost:5432`
 
 ## 📋 Pré-requisitos
 
 - Docker e Docker Compose instalados
 - ngrok instalado ([Download](https://ngrok.com/download))
 - Para webhooks externos: conta ngrok configurada
-- jq (opcional, para formatação JSON): `sudo apt install jq`
+- `jq` (opcional, para formatação JSON): `sudo apt install jq`
 
 ### Configuração do ngrok
 ```bash
@@ -112,7 +109,7 @@ N8N_EDITOR_BASE_URL=https://sua-url-ngrok.ngrok-free.app
 
 ### Database
 | Variável | Descrição | Padrão |
-|----------|-----------|---------|
+|---|---|---|
 | `POSTGRES_USER` | Usuário admin do PostgreSQL | `admin` |
 | `POSTGRES_PASSWORD` | Senha do admin | `admin` |
 | `POSTGRES_DB` | Nome do banco | `n8n` |
@@ -121,7 +118,7 @@ N8N_EDITOR_BASE_URL=https://sua-url-ngrok.ngrok-free.app
 
 ### n8n Core
 | Variável | Descrição | Exemplo |
-|----------|-----------|---------|
+|---|---|---|
 | `N8N_HOST` | Host público do n8n | `abc123.ngrok-free.app` |
 | `N8N_PROTOCOL` | Protocolo (http/https) | `https` |
 | `WEBHOOK_URL` | URL base para webhooks | `https://abc123.ngrok-free.app/` |
@@ -131,7 +128,7 @@ N8N_EDITOR_BASE_URL=https://sua-url-ngrok.ngrok-free.app
 
 ### Configurações Adicionais
 | Variável | Descrição | Padrão |
-|----------|-----------|--------|
+|---|---|---|
 | `N8N_PATH` | Caminho base | `/` |
 | `N8N_PUSH_BACKEND` | Backend para notificações | `websocket` |
 
@@ -145,6 +142,7 @@ N8N_EDITOR_BASE_URL=https://sua-url-ngrok.ngrok-free.app
 ├── .env.example           # Exemplo de configuração
 └── README.md              # Documentação completa
 ```
+O script `init-data.sh` é executado na primeira vez que o contêiner do PostgreSQL é iniciado. Ele cria um usuário não-root com as credenciais `POSTGRES_NON_ROOT_USER` e `POSTGRES_NON_ROOT_PASSWORD` e concede a ele todos os privilégios no banco de dados `POSTGRES_DB`. Esta é uma boa prática de segurança para evitar que a aplicação n8n se conecte ao banco de dados com o superusuário do PostgreSQL.
 
 ## 🛠️ Comandos Úteis
 
@@ -198,7 +196,7 @@ docker run --rm -v n8n-postgres_db_storage:/data -v $(pwd):/backup alpine tar cz
 docker run --rm -v n8n-postgres_n8n_storage:/data -v $(pwd):/backup alpine tar czf /backup/n8n_backup.tar.gz /data
 ```
 
-## �️ Segurança
+## 🛡️ Segurança
 
 - ⚠️ **Desenvolvimento apenas**: Esta configuração é otimizada para desenvolvimento local
 - 🔐 **Webhook Security**: Configure autenticação nos webhooks quando possível
@@ -267,7 +265,7 @@ curl http://localhost:4040/api/tunnels
 2. **VPS com domínio próprio**
 3. **Reverse proxy interno**
 
-## � Recursos e Documentação
+## 📚 Recursos e Documentação
 
 - [Documentação oficial n8n](https://docs.n8n.io/)
 - [ngrok Documentation](https://ngrok.com/docs)
