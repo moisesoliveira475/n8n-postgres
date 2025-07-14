@@ -253,6 +253,22 @@ curl https://sua-url.ngrok-free.app
 curl http://localhost:4040/api/tunnels
 ```
 
+## 🔄 Atualização do n8n
+
+Para atualizar sua instância do n8n para a versão mais recente, siga estes passos:
+
+1.  **Baixar a imagem mais recente:**
+    ```bash
+    docker-compose pull
+    ```
+
+2.  **Parar e recriar os contêineres:**
+    ```bash
+    docker-compose down && docker-compose up -d
+    ```
+
+Isso irá parar os serviços, baixar a nova imagem e iniciá-los novamente com os dados preservados.
+
 ## 🔄 Alternativas ao ngrok
 
 ### Para desenvolvimento:
