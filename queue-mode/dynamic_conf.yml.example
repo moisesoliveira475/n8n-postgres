@@ -1,0 +1,65 @@
+# =============================================================================
+# DYNAMIC CONFIGURATION - TRAEFIK SSL CERTIFICATES
+# =============================================================================
+# Este arquivo configura os certificados SSL para o Traefik
+# Copie este arquivo para dynamic_conf.yml e configure seus domínios
+# Comando: cp dynamic_conf.yml.example dynamic_conf.yml
+# =============================================================================
+
+tls:
+  certificates:
+    # Certificado para o dashboard do Traefik
+    - certFile: /etc/letsencrypt/live/traefik.SEUDOMINIO.com/fullchain.pem
+      keyFile: /etc/letsencrypt/live/traefik.SEUDOMINIO.com/privkey.pem
+    
+    # Certificado para o n8n
+    - certFile: /etc/letsencrypt/live/n8n.SEUDOMINIO.com/fullchain.pem
+      keyFile: /etc/letsencrypt/live/n8n.SEUDOMINIO.com/privkey.pem
+
+# =============================================================================
+# INSTRUÇÕES DE CONFIGURAÇÃO
+# =============================================================================
+
+# 1. SUBSTITUA "SEUDOMINIO.com" pelo seu domínio real em ambas as seções
+
+# 2. GERE OS CERTIFICADOS SSL usando certbot:
+#    sudo certbot certonly --standalone -d traefik.SEUDOMINIO.com
+#    sudo certbot certonly --standalone -d n8n.SEUDOMINIO.com
+
+# 3. VERIFIQUE SE OS CAMINHOS DOS CERTIFICADOS EXISTEM:
+#    sudo ls -la /etc/letsencrypt/live/traefik.SEUDOMINIO.com/
+#    sudo ls -la /etc/letsencrypt/live/n8n.SEUDOMINIO.com/
+
+# 4. CONFIGURE AS VARIÁVEIS NO .env:
+#    DOMAIN_NAME=SEUDOMINIO.com
+#    SUBDOMAIN=n8n
+
+# =============================================================================
+# EXEMPLO COMPLETO
+# =============================================================================
+
+# Para o domínio "meusite.com.br" com subdomínio "automacao":
+#
+# tls:
+#   certificates:
+#     - certFile: /etc/letsencrypt/live/traefik.meusite.com.br/fullchain.pem
+#       keyFile: /etc/letsencrypt/live/traefik.meusite.com.br/privkey.pem
+#     - certFile: /etc/letsencrypt/live/automacao.meusite.com.br/fullchain.pem
+#       keyFile: /etc/letsencrypt/live/automacao.meusite.com.br/privkey.pem
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# PROBLEMA: "Certificate not found"
+# SOLUÇÃO: Verificar se certificados foram gerados corretamente
+
+# PROBLEMA: "Permission denied"  
+# SOLUÇÃO: Verificar permissões dos certificados:
+#    sudo chown -R root:root /etc/letsencrypt/
+#    sudo chmod -R 755 /etc/letsencrypt/live/
+
+# PROBLEMA: "TLS handshake error"
+# SOLUÇÃO: Verificar se domínios no arquivo coincidem com os certificados
+
+# =============================================================================

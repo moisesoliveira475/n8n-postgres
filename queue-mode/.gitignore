@@ -1,0 +1,96 @@
+# =============================================================================
+# GITIGNORE - N8N QUEUE MODE PROJECT
+# =============================================================================
+# Arquivo para proteger dados sensíveis ao subir no GitHub público
+
+# === ARQUIVOS DE CONFIGURAÇÃO SENSÍVEIS ===
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+.env.backup*
+
+# === CERTIFICADOS E CHAVES ===
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.jks
+ssl/
+certs/
+certificates/
+
+# === DADOS PESSOAIS E LOGS ===
+*.log
+*.log.*
+logs/
+log/
+diagnostics.md
+troubleshooting-*.md
+
+# === BACKUPS E DADOS ===
+*.sql
+*.dump
+*.backup
+backup/
+backups/
+dumps/
+data/
+postgres_data/
+n8n_data/
+redis_data/
+
+# === ARQUIVOS TEMPORÁRIOS ===
+tmp/
+temp/
+.tmp/
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# === CONFIGURAÇÕES ESPECÍFICAS DO USUÁRIO ===
+dynamic_conf.yml
+docker-compose.override.yml
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# === ARQUIVOS DE SISTEMA ===
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === VOLUMES DOCKER ===
+volumes/
+docker-volumes/
+pgdata/
+redisdata/
+
+# === ARQUIVOS DE DESENVOLVIMENTO ===
+test/
+testing/
+dev/
+development/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+
+# === ARQUIVOS ESPECÍFICOS DO PROJETO ===
+# Remova o comentário das linhas abaixo se você criar estes arquivos
+# config.local.yml
+# traefik.local.yml
+# docker-compose.local.yml
+
+# === MANTER ARQUIVOS EXEMPLO ===
+# Estes arquivos DEVEM ser commitados como exemplos:
+# !.env.example
+# !dynamic_conf.yml.example
+# !docker-compose.example.yml

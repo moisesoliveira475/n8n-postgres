@@ -158,3 +158,30 @@ docker-compose up -d --force-recreate
 - [Documentação do Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)
 - [n8n Configuration Options](https://docs.n8n.io/hosting/configuration/)
 - [n8n public REST API](https://docs.n8n.io/api/)
+
+# Documentação do modo queue
+
+A implementação antiga foi movida para a pasta `standard/`.
+A nova implementação, baseada no modo queue do n8n, está em `queue-mode/`.
+
+## Estrutura do Projeto
+
+- `standard/`: Implementação antiga, modo tradicional.
+- `queue-mode/`: Nova implementação, modo queue, recomendada para produção e alta performance.
+
+Consulte a documentação específica em cada pasta para detalhes de configuração e execução.
+
+## Como usar o modo queue
+
+Acesse a pasta `queue-mode/` e siga as instruções do `README` local ou adapte os comandos do guia principal para esse diretório.
+
+---
+
+## Novos guias e recursos
+
+- Para certificados SSL com Traefik, veja `queue-mode/traefik-certificate-guide.md`.
+- Para Cloudflare Tunnel, siga o guia em `standard/cloudflare-guide.md` (aplicável também ao modo queue, adaptando caminhos).
+
+## Observação
+
+A documentação e scripts do modo queue podem diferir do modo tradicional. Sempre confira o `docker-compose.yml` e variáveis `.env` da pasta correspondente ao modo desejado.
