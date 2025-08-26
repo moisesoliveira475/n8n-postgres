@@ -94,3 +94,5 @@ __pycache__/
 # !.env.example
 # !dynamic_conf.yml.example
 # !docker-compose.example.yml
+
+*.backup.*

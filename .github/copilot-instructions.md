@@ -114,9 +114,11 @@ n8n-postgres/
 - **Execution mode:** Must set `EXECUTIONS_MODE=queue`
 - **Redis queue:** All workflows go through Redis queue
 - **Traefik labels:** Services use Traefik routing labels
-- **SSL certificates:** Automatic Let's Encrypt via Traefik
+- **SSL certificates:** Two approaches available:
+  - **Option 1**: Automatic Let's Encrypt via Traefik (recommended)
+  - **Option 2**: External certificates via certbot (current default)
 - **Service separation:** Main, worker, and webhook are separate containers
-- **Dynamic configuration:** Uses `dynamic_conf.yml` for Traefik
+- **Dynamic configuration:** Uses `dynamic_conf.yml` for Traefik (external certs) or built-in config (automatic certs)
 
 ## Integration Points
 
@@ -128,8 +130,8 @@ n8n-postgres/
 
 ### Queue Mode Integrations
 - **Traefik Reverse Proxy:**
-  - Automatic SSL with Let's Encrypt
-  - Dynamic configuration via `dynamic_conf.yml`
+  - **Option 1**: Automatic SSL with Let's Encrypt (use `docker-compose-auto-ssl.yml`)
+  - **Option 2**: External SSL certificates via dynamic configuration (`dynamic_conf.yml`)
   - Dashboard available at port 8080
 - **Redis Queue:**
   - Message broker for workflow execution
@@ -137,6 +139,9 @@ n8n-postgres/
 - **Cloudflare DDNS:**
   - Automatic DNS updates for dynamic IPs
   - Configured via CLOUDFLARE_API_TOKEN
+- **SSL Certificate Management:**
+  - **Automatic (recommended):** Traefik handles Let's Encrypt automatically
+  - **External:** Manual certificate generation with certbot + dynamic configuration
 
 ## Mode Selection Guide
 - **Use Standard Mode for:**
@@ -190,6 +195,19 @@ n8n-postgres/
   ```bash
   # Access https://traefik.yourdomain.com/dashboard/
   ```
+- **Switch to automatic SSL certificates:**
+  ```bash
+  cd queue-mode/
+  cp docker-compose.yml docker-compose.yml.backup
+  cp docker-compose-auto-ssl.yml docker-compose.yml
+  mv dynamic_conf.yml dynamic_conf.yml.disabled
+  docker-compose down && docker-compose up -d
+  ```
+- **Certificate troubleshooting:**
+  ```bash
+  cd queue-mode/
+  ./fix-certificates.sh  # Interactive certificate fixing tool
+  ```
 
 ## Reference Files
 
@@ -203,14 +221,44 @@ n8n-postgres/
 ### Queue Mode Files
 - `queue-mode/README.md`: Enterprise setup documentation
 - `queue-mode/start.sh`: Queue mode automation script
-- `queue-mode/docker-compose.yml`: Complex service orchestration
-- `queue-mode/dynamic_conf.yml`: Traefik dynamic configuration
+- `queue-mode/docker-compose.yml`: Complex service orchestration (external certificates)
+- `queue-mode/docker-compose-auto-ssl.yml`: Alternative configuration with automatic SSL
+- `queue-mode/dynamic_conf.yml`: Traefik dynamic configuration (for external certificates)
+- `queue-mode/fix-certificates.sh`: Interactive SSL certificate troubleshooting tool
 - `queue-mode/diagnostics.md`: Troubleshooting guide
 - `queue-mode/TROUBLESHOOTING.md`: Common issues and solutions
 
 ### Root Level Files
 - `README.md`: Project overview and mode comparison
 - `.github/copilot-instructions.md`: This file - development guidelines
+
+## SSL Certificate Management (Queue Mode)
+
+The queue-mode offers two approaches for SSL certificates:
+
+### Option 1: Automatic SSL (Recommended)
+- **Configuration**: Use `docker-compose-auto-ssl.yml`
+- **Management**: Traefik handles Let's Encrypt automatically
+- **Pros**: Zero maintenance, automatic renewal, simpler setup
+- **Cons**: Requires public domain, depends on Let's Encrypt connectivity
+- **Best for**: Production environments, development with public domains
+
+### Option 2: External SSL (Current Default)
+- **Configuration**: Use `docker-compose.yml` + `dynamic_conf.yml`
+- **Management**: Manual certificate generation with certbot
+- **Pros**: Full control, works with any CA, certificates persist on host
+- **Cons**: Manual renewal required, more complex setup, more failure points
+- **Best for**: Corporate environments, custom certificates, air-gapped deployments
+
+### Migration Between Options
+- **To Automatic**: `cp docker-compose-auto-ssl.yml docker-compose.yml && mv dynamic_conf.yml dynamic_conf.yml.disabled`
+- **To External**: Restore backup and re-enable `dynamic_conf.yml`
+- **Troubleshooting**: Use `./fix-certificates.sh` for interactive fixing
+
+### Local Development
+- **HTTP Mode**: Disable SSL for local testing
+- **Self-signed**: Generate certificates for local HTTPS testing
+- **Hosts file**: Add entries for local domain resolution
 
 ---
 For any unclear or missing conventions, review the appropriate mode's README.md and documentation files for the latest project practices. The main README.md in the root provides a comprehensive comparison to help choose between Standard and Queue modes.

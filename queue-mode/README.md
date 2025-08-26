@@ -38,7 +38,7 @@ Este projeto implementa uma instalação completa do **n8n** (plataforma de auto
 ### 🎪 Cenário de Uso
 
 - **Desenvolvimento local** em ambiente WSL/Windows
-- **Produção** com domínios reais e certificados Let's Encrypt
+- **Produção** com domínios reais e certificados SSL automáticos ou externos
 - **Escalabilidade horizontal** com workers dedicados
 - **Alta disponibilidade** com Redis como broker de mensagens
 
@@ -48,7 +48,7 @@ Este projeto implementa uma instalação completa do **n8n** (plataforma de auto
 - ✅ **Traefik Reverse Proxy** - Roteamento automático e terminação SSL
 - ✅ **PostgreSQL** - Banco de dados robusto para persistência
 - ✅ **Redis** - Message broker para comunicação entre workers
-- ✅ **Certificados SSL automáticos** - Let's Encrypt integrado
+- ✅ **Certificados SSL** - Duas opções: automáticos via Traefik ou externos via certbot
 - ✅ **Docker Compose** - Orquestração simplificada
 - ✅ **Monitoramento integrado** - Dashboard do Traefik incluído
 - ✅ **Cloudflare DDNS** - Atualização automática de DNS
@@ -115,7 +115,8 @@ graph TB
 - **IP público estático** ou serviço DDNS
 
 ### 📜 Certificados SSL
-- Acesso a **Let's Encrypt** (certbot)
+- **Opção 1**: Certificados automáticos via Traefik (recomendado)
+- **Opção 2**: Certificados externos via Let's Encrypt (certbot)
 - **Cloudflare API Token** (opcional, para DDNS)
 
 ## 🚀 Instalação e Configuração
@@ -215,7 +216,7 @@ echo "admin" | openssl passwd -apr1 -stdin
 htpasswd -nb admin sua_senha
 ```
 
-### 4. Configuração DNS e Certificados
+### 4. Configuração DNS e Certificados SSL
 
 #### 🌐 Configuração DNS
 
@@ -226,27 +227,158 @@ A    traefik.meudominio.com    → SEU_IP_PUBLICO
 A    n8n.meudominio.com       → SEU_IP_PUBLICO
 ```
 
-#### 📜 Geração de Certificados SSL
+#### 📜 Configuração de Certificados SSL
 
+Este projeto oferece **duas abordagens** para certificados SSL. Escolha a que melhor se adequa ao seu ambiente:
+
+##### 🚀 Opção 1: Certificados Automáticos via Traefik (RECOMENDADA)
+
+**📋 Características:**
+- ✅ Geração automática de certificados Let's Encrypt
+- ✅ Renovação automática (sem intervenção manual)
+- ✅ Redirecionamento HTTP→HTTPS automático
+- ✅ Configuração mais simples
+- ✅ Menos pontos de falha
+- ✅ Ideal para ambientes de produção
+
+**📝 Configuração:**
+
+1. **Use o arquivo docker-compose com SSL automático:**
+   ```bash
+   cp docker-compose-auto-ssl.yml docker-compose.yml
+   ```
+
+2. **Configure as variáveis no .env:**
+   ```bash
+   SSL_EMAIL=seu.email@dominio.com
+   DOMAIN_NAME=meudominio.com
+   SUBDOMAIN=n8n
+   ```
+
+3. **Remova configuração dinâmica externa (se existir):**
+   ```bash
+   mv dynamic_conf.yml dynamic_conf.yml.disabled
+   ```
+
+4. **Inicie os serviços:**
+   ```bash
+   docker-compose up -d
+   ```
+
+**✅ Prós:**
+- Configuração zero para certificados
+- Renovação automática (60 dias antes do vencimento)
+- Suporte nativo a múltiplos domínios
+- Logs centralizados no Traefik
+- Não requer acesso root para renovação
+
+**❌ Contras:**
+- Requer domínio público válido
+- Depende da conectividade com Let's Encrypt
+- Certificados ficam dentro do container (backup necessário)
+
+---
+
+##### ⚙️ Opção 2: Certificados Externos via Let's Encrypt (certbot)
+
+**📋 Características:**
+- 🔧 Controle total sobre geração de certificados
+- 🔧 Certificados armazenados no sistema host
+- 🔧 Flexibilidade para certificados personalizados
+- 🔧 Ideal para ambientes com requisitos específicos
+
+**📝 Configuração:**
+
+1. **Instalar certbot:**
+   ```bash
+   sudo apt install -y certbot
+   ```
+
+2. **Parar serviços na porta 80/443:**
+   ```bash
+   sudo systemctl stop apache2 nginx 2>/dev/null || true
+   ```
+
+3. **Gerar certificados:**
+   ```bash
+   # Certificado para Traefik
+   sudo certbot certonly --standalone \
+     --preferred-challenges http \
+     -d traefik.meudominio.com
+
+   # Certificado para n8n
+   sudo certbot certonly --standalone \
+     --preferred-challenges http \
+     -d n8n.meudominio.com
+   ```
+
+4. **Verificar certificados gerados:**
+   ```bash
+   sudo ls -la /etc/letsencrypt/live/
+   ```
+
+5. **Configurar dynamic_conf.yml:**
+   ```yaml
+   tls:
+     certificates:
+       - certFile: /etc/letsencrypt/live/traefik.meudominio.com/fullchain.pem
+         keyFile: /etc/letsencrypt/live/traefik.meudominio.com/privkey.pem
+       - certFile: /etc/letsencrypt/live/n8n.meudominio.com/fullchain.pem
+         keyFile: /etc/letsencrypt/live/n8n.meudominio.com/privkey.pem
+   ```
+
+**✅ Prós:**
+- Certificados persistem no sistema host
+- Controle total sobre o processo
+- Funciona com certificados de qualquer CA
+- Backup mais simples (arquivos no filesystem)
+- Pode usar certificados wildcard
+
+**❌ Contras:**
+- Configuração manual mais complexa
+- Renovação manual necessária (ou cron job)
+- Requer acesso root para geração
+- Mais pontos de falha
+- Conflitos potenciais com outros serviços na porta 80/443
+
+---
+
+#### 🎯 Qual Opção Escolher?
+
+| Cenário | Opção Recomendada | Motivo |
+|---------|------------------|---------|
+| **Produção** | Opção 1 (Automática) | Menor manutenção, mais confiável |
+| **Desenvolvimento** | Opção 1 (Automática) | Configuração mais simples |
+| **Ambiente corporativo** | Opção 2 (Externa) | Controle total, certificados personalizados |
+| **Múltiplos serviços** | Opção 2 (Externa) | Compartilhamento de certificados |
+| **Primeiro uso** | Opção 1 (Automática) | Menos complexidade |
+
+#### 🔧 Migração Entre Opções
+
+**De Externa para Automática:**
 ```bash
-# Instalar certbot
-sudo apt install -y certbot
+# Backup da configuração atual
+cp docker-compose.yml docker-compose.yml.backup
+mv dynamic_conf.yml dynamic_conf.yml.disabled
 
-# Parar serviços na porta 80/443 se houver
-sudo systemctl stop apache2 nginx 2>/dev/null || true
+# Aplicar configuração automática
+cp docker-compose-auto-ssl.yml docker-compose.yml
+docker-compose down && docker-compose up -d
+```
 
-# Gerar certificado para Traefik
-sudo certbot certonly --standalone \
-  --preferred-challenges http \
-  -d traefik.meudominio.com
+**De Automática para Externa:**
+```bash
+# Parar Traefik para liberar porta 80
+docker-compose stop traefik
 
-# Gerar certificado para n8n
-sudo certbot certonly --standalone \
-  --preferred-challenges http \
-  -d n8n.meudominio.com
+# Gerar certificados externos
+sudo certbot certonly --standalone -d traefik.meudominio.com
+sudo certbot certonly --standalone -d n8n.meudominio.com
 
-# Verificar certificados
-sudo ls -la /etc/letsencrypt/live/
+# Restaurar configuração externa
+cp docker-compose.yml.backup docker-compose.yml
+mv dynamic_conf.yml.disabled dynamic_conf.yml
+docker-compose up -d
 ```
 
 ### 5. Configuração Específica WSL/Windows
@@ -385,9 +517,39 @@ labels:
 
 ### 🔴 Certificados SSL não funcionam
 
-**Problema**: Erro de certificado SSL inválido.
+**Problema**: Erro de certificado SSL inválido ou problemas de conectividade HTTPS.
 
-**Causas e Soluções**:
+#### **Para Certificados Automáticos (Opção 1):**
+
+1. **Verificar se o Traefik está gerando certificados**:
+   ```bash
+   docker-compose logs traefik | grep -i certificate
+   docker-compose logs traefik | grep -i acme
+   ```
+
+2. **Verificar conectividade com Let's Encrypt**:
+   ```bash
+   # Testar se o domínio resolve corretamente
+   nslookup n8n.meudominio.com
+   
+   # Testar conectividade HTTP (para ACME challenge)
+   curl -I http://n8n.meudominio.com/.well-known/acme-challenge/test
+   ```
+
+3. **Limpar cache de certificados e tentar novamente**:
+   ```bash
+   docker-compose down
+   docker volume rm queue-mode_traefik_letsencrypt
+   docker-compose up -d
+   ```
+
+4. **Verificar configuração no .env**:
+   ```bash
+   # Certificar-se de que SSL_EMAIL está configurado
+   grep SSL_EMAIL .env
+   ```
+
+#### **Para Certificados Externos (Opção 2):**
 
 1. **Certificados não gerados**:
    ```bash
@@ -400,13 +562,67 @@ labels:
    sudo chmod -R 755 /etc/letsencrypt/live/
    ```
 
-3. **Configuração dynamic_conf.yml**:
+3. **Configuração dynamic_conf.yml incorreta**:
    ```yaml
    tls:
      certificates:
        - certFile: /etc/letsencrypt/live/dominio/fullchain.pem
          keyFile: /etc/letsencrypt/live/dominio/privkey.pem
    ```
+
+4. **Verificar se arquivos existem**:
+   ```bash
+   sudo ls -la /etc/letsencrypt/live/seu.dominio.com/
+   ```
+
+#### **Problemas Comuns a Ambas Opções:**
+
+1. **Domínio não resolve publicamente**:
+   - Certificados SSL reais só funcionam com domínios públicos
+   - Para teste local, use certificados auto-assinados ou HTTP
+
+2. **Portas 80/443 bloqueadas**:
+   ```bash
+   # Verificar se portas estão abertas
+   sudo netstat -tlnp | grep :80
+   sudo netstat -tlnp | grep :443
+   ```
+
+3. **Firewall bloqueando acesso**:
+   ```bash
+   sudo ufw allow 80
+   sudo ufw allow 443
+   ```
+
+#### **🔧 Script de Correção Automática**
+
+Para resolver problemas de certificados automaticamente:
+
+```bash
+# Executar script de correção
+./fix-certificates.sh
+```
+
+Este script oferece:
+- Migração automática para certificados automáticos
+- Geração de certificados auto-assinados para teste local
+- Configuração para HTTP (sem SSL) para desenvolvimento
+- Diagnóstico completo de problemas
+
+#### **🚀 Solução Rápida (Certificados Automáticos)**
+
+Se você quer a solução mais simples e confiável:
+
+```bash
+# Migrar para certificados automáticos
+cp docker-compose.yml docker-compose.yml.backup
+cp docker-compose-auto-ssl.yml docker-compose.yml
+mv dynamic_conf.yml dynamic_conf.yml.disabled
+docker-compose down && docker-compose up -d
+
+# Aguardar alguns minutos e verificar
+docker-compose logs -f traefik
+```
 
 ### 🔴 PostgreSQL não inicia
 
@@ -490,16 +706,89 @@ docker-compose pull
 
 ### 🔄 Renovação de Certificados
 
+#### **Certificados Automáticos (Opção 1)**
+
 ```bash
-# Renovar certificados (automático)
+# Verificar logs de renovação automática
+docker-compose logs traefik | grep -i renew
+
+# Forçar renovação (se necessário)
+docker-compose restart traefik
+
+# Verificar certificados ativos
+curl -vI https://n8n.meudominio.com 2>&1 | grep -i expire
+```
+
+**Observações:**
+- Renovação automática ocorre 30 dias antes do vencimento
+- Não requer intervenção manual
+- Logs de renovação aparecem nos logs do Traefik
+
+#### **Certificados Externos (Opção 2)**
+
+**🚀 Script Automatizado de Renovação**
+
+O projeto inclui um script automatizado para renovação de certificados externos:
+
+```bash
+# Executar renovação automática
+./renew-certificates.sh
+```
+
+**📋 O que o script faz:**
+- ⏸️ Para o Traefik temporariamente para liberar as portas 80/443
+- 🔐 Executa `certbot renew` para renovar todos os certificados
+- 🚀 Reinicia o Traefik automaticamente
+- 📋 Exibe o status dos certificados renovados
+- ✅ Inclui tratamento de erros e logs informativos
+
+**🔧 Renovação Manual (Alternativa)**
+
+```bash
+# Renovar certificados manualmente
 sudo certbot renew --quiet
 
-# Verificar validade
+# Verificar validade dos certificados
 sudo certbot certificates
+
+# Configurar renovação automática via cron
+echo "0 12 * * * /usr/bin/certbot renew --quiet && docker-compose restart traefik" | sudo crontab -
 
 # Reiniciar Traefik para carregar novos certificados
 docker-compose restart traefik
 ```
+
+**⏰ Configuração de Cron para Automação**
+
+```bash
+# Tornar o script executável
+chmod +x renew-certificates.sh
+
+# Adicionar ao crontab para execução automática (todo dia 1º às 3:00)
+echo "0 3 1 * * /caminho/para/queue-mode/renew-certificates.sh >> /var/log/certbot-renew.log 2>&1" | sudo crontab -
+
+# Verificar crontab
+sudo crontab -l
+```
+
+**📊 Monitoramento da Renovação**
+
+```bash
+# Verificar logs da última renovação
+tail -f /var/log/certbot-renew.log
+
+# Verificar data de validade dos certificados
+sudo certbot certificates
+
+# Testar se certificados estão funcionando
+curl -vI https://n8n.meudominio.com 2>&1 | grep -E 'expire|issuer'
+```
+
+**Observações:**
+- ✅ Script automatizado simplifica processo de renovação
+- ✅ Renovação via cron job com logs centralizados
+- ✅ Necessário reiniciar Traefik após renovação
+- ✅ Requer acesso root para execução do certbot
 
 ## 📊 Monitoramento
 
@@ -616,13 +905,52 @@ Ao reportar problemas, inclua:
 - ✅ Configuração (sem senhas!)
 - ✅ Passos para reproduzir
 
-### 📝 Arquivos de Diagnóstico
+### 📝 Arquivos de Diagnóstico e Ferramentas
 
-O projeto inclui arquivos de diagnóstico detalhados:
+O projeto inclui várias ferramentas para diagnóstico e correção:
+
+#### 🔧 Scripts de Automação
+
+- **`start.sh`** - Script principal com verificações automáticas
+  ```bash
+  ./start.sh                 # Inicialização com diagnósticos
+  ./start.sh --clean         # Inicialização com limpeza
+  ./start.sh --monitor       # Inicialização com monitoramento
+  ```
+
+- **`fix-certificates.sh`** - Correção automática de problemas SSL
+  ```bash
+  ./fix-certificates.sh      # Menu interativo de correção
+  ```
+
+- **`renew-certificates.sh`** - Renovação automática de certificados Let's Encrypt
+  ```bash
+  ./renew-certificates.sh    # Renovação automática com parada/reinício do Traefik
+  chmod +x renew-certificates.sh  # Tornar executável na primeira vez
+  ```
+
+#### 📋 Arquivos de Configuração
+
+- **`docker-compose.yml`** - Configuração principal (certificados externos)
+- **`docker-compose-auto-ssl.yml`** - Configuração com SSL automático
+- **`dynamic_conf.yml`** - Configuração dinâmica do Traefik (certificados externos)
+- **`.env`** - Variáveis de ambiente do projeto
+
+#### 📊 Diagnósticos Detalhados
 
 - **`diagnostics.md`** - Log completo de troubleshooting
-- **`start.sh`** - Script de inicialização com verificações
-- **Logs do Docker** - Para análise técnica
+- **`TROUBLESHOOTING.md`** - Guia de solução de problemas comuns
+- **Logs do Docker** - Para análise técnica detalhada
+
+#### 🎯 Escolha da Abordagem SSL
+
+| Ferramenta | Certificados Automáticos | Certificados Externos |
+|------------|-------------------------|----------------------|
+| **Configuração** | `docker-compose-auto-ssl.yml` | `docker-compose.yml` + `dynamic_conf.yml` |
+| **Iniciação** | `./start.sh` | `./start.sh` |
+| **Correção** | `./fix-certificates.sh` (opção 1) | `./fix-certificates.sh` (opção 2) |
+| **Renovação** | Automática (via Traefik) | `./renew-certificates.sh` ou cron manual |
+| **Logs** | `docker-compose logs traefik` | `sudo certbot certificates` |
 
 ---
 

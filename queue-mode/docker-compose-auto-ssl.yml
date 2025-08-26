@@ -1,0 +1,158 @@
+services:
+  traefik:
+    image: "traefik:v3.5"
+    restart: always
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      # Configuração automática de certificados SSL
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${SSL_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.keyType=EC256"
+      # Redirecionamento HTTP -> HTTPS automático
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    networks:
+      - n8n-network
+    volumes:
+      # Volume para armazenar certificados automáticos
+      - traefik_letsencrypt:/letsencrypt
+      - traefik_data:/data 
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=true"
+      # Dashboard com certificado automático
+      - "traefik.http.routers.api.rule=Host(`traefik.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.api.service=api@internal"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.api.middlewares=auth"
+      # Middleware de autenticação
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_AUTH_USERS}"
+
+  postgres:
+    image: postgres:17 # Versão pinnada
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../init-data.sh:/docker-entrypoint-initdb.d/init-data.sh:ro
+    networks:
+      - n8n-network
+    healthcheck: # Garante que o DB está pronto antes do n8n iniciar
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8 # Versão pinnada
+    restart: always
+    command: redis-server --requirepass ${QUEUE_BULL_REDIS_PASSWORD} # Inicia o Redis com senha
+    volumes:
+      - redis_data:/data
+    networks:
+      - n8n-network
+
+  n8n-main:
+    image: docker.n8n.io/n8nio/n8n # Versão pinnada
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      # Roteamento principal do n8n com certificado automático
+      - "traefik.http.routers.n8n.rule=Host(`${SUBDOMAIN}.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.n8n.service=n8n"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+    environment: &n8n-env # Define uma âncora YAML com todas as variáveis
+      # --- Conexão com o Banco de Dados ---
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      # --- Configurações do Modo Fila ---
+      - EXECUTIONS_MODE=${EXECUTIONS_MODE}
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_PASSWORD=${QUEUE_BULL_REDIS_PASSWORD}
+      # --- Variáveis Essenciais do n8n ---
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_HOST=${SUBDOMAIN}.${DOMAIN_NAME}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_RUNNERS_ENABLED=true
+      - WEBHOOK_URL=https://${SUBDOMAIN}.${DOMAIN_NAME}/
+      - NODE_ENV=production
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+    networks:
+      - n8n-network
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  n8n-worker:
+    image: docker.n8n.io/n8nio/n8n
+    restart: always
+    command: worker
+    environment: *n8n-env # Reutiliza o bloco de variáveis definido acima
+    networks:
+      - n8n-network
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - n8n-main
+
+  n8n-webhook:
+    image: docker.n8n.io/n8nio/n8n
+    restart: always
+    command: webhook
+    environment: *n8n-env # Reutiliza o bloco de variáveis definido acima
+    networks:
+      - n8n-network
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - n8n-main
+
+  cloudflare-ddns:
+    image: favonia/cloudflare-ddns
+    restart: unless-stopped
+    networks:
+      - n8n-network
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - DOMAINS=${SUBDOMAIN}.${DOMAIN_NAME},traefik.${DOMAIN_NAME}
+      - PROXIED=false
+      - IP6_PROVIDER=none
+
+networks:
+  n8n-network:
+    driver: bridge
+
+volumes:
+  n8n_data:
+  postgres_data:
+  redis_data:
+  traefik_data:
+  traefik_letsencrypt:  # Volume para certificados automáticos
